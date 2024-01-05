@@ -1,0 +1,16 @@
+[package]
+name = "axoprocess"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[features]
+default = []
+stdout_to_stderr_modern = []
+
+[dependencies]
+miette = "5.10.0"
+thiserror = "1.0.50"
+tracing = "0.1.40"

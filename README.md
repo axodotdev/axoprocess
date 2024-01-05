@@ -1,22 +1,10 @@
-# oss-repo-template
-> 📄 a template for axodotdev's open source repositories
+# axoprocess
 
-This is a template repo for @axodotdev's open source projects.
+[![crates.io](https://img.shields.io/crates/v/axoprocess.svg)](https://crates.io/crates/axoprocess)
+[![docs](https://docs.rs/axoprocess/badge.svg)](https://docs.rs/axoprocess)
+[![Rust CI](https://github.com/axodotdev/axoprocess/workflows/Rust/badge.svg?branch=main)](https://github.com/axodotdev/axoprocess/actions/workflows/ci.yml)
 
-## Quickstart
-
-The README should contain a brief set of steps on how to go from installation to
-"Hello World". It should also link to more in depth and comprehensive install
-and usage documentation.
-
-For a package, this should indicate how to add the package (e.g. cut and paste
-into `Cargo.toml`) and then a short example.
-
-For a cli, this should explain the preferred installation method and then offer
-the most common set of commands (e.g. `axo init && axo run`).
-
-The code block for the example or command set shouldn't exceed 20 lines, but
-exceptions can be made.
+Nicer defaults for invoking CLI Commands.
 
 ## License
 
