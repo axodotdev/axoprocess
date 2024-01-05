@@ -67,7 +67,6 @@
 //!
 //! Which is, a lot nicer!
 
-// by default the "exec" commands ([`spawn`][], [`output`][], and [`status`][]):
 pub use error::*;
 use std::{
     ffi::OsStr,
@@ -84,6 +83,8 @@ pub struct Cmd {
     summary: String,
     log: Option<LogStrategy>,
     check_status: bool,
+    #[cfg(not(feature = "stdout_to_stderr_modern"))]
+    stdout_to_stderr_polyfill: bool,
 }
 
 /// Constructors
@@ -96,6 +97,8 @@ impl Cmd {
             inner,
             log: Some(LogStrategy::Tracing(tracing::Level::INFO)),
             check_status: true,
+            #[cfg(not(feature = "stdout_to_stderr_modern"))]
+            stdout_to_stderr_polyfill: false,
         }
     }
 }
@@ -108,11 +111,24 @@ impl Cmd {
     /// the output of a command to give your user realtime feedback, but the command
     /// randomly writes some things to stdout, and you don't want your own stdout tainted.
     ///
-    /// This is equivalent to `command.stdout(std::io::stderr());` but it's easy to
-    /// not know you can do that, so this API basically exists to yell from the rooftops
-    /// that you ABSOLUTELY CAN.
+    /// If the the "stdout_to_stderr_modern" feature is enabled, this will just do
+    /// `command.stdout(std::io::stderr());`, which will actually let the two streams
+    /// interleave and ideally do the best possible thing. In the future this will be
+    /// enabled by default (once the MSRV is acceptable).
+    ///
+    /// Otherwise, it will use a polyfilled implementation for `output` and `status`
+    /// that captures child stdout and prints it to the parent stderr at the end. If
+    /// using `status`, `command.stderr(std::io::Inherit)` will be forced on, ignoring
+    /// your own settings for stderr.
     pub fn stdout_to_stderr(&mut self) -> &mut Self {
-        self.inner.stdout(std::io::stderr());
+        #[cfg(not(feature = "stdout_to_stderr_modern"))]
+        {
+            self.stdout_to_stderr_polyfill = true;
+        }
+        #[cfg(feature = "stdout_to_stderr_modern")]
+        {
+            self.inner.stdout(std::io::stderr());
+        }
         self
     }
 
@@ -146,12 +162,14 @@ impl Cmd {
 
 /// Execution APIs
 impl Cmd {
-    /// Equivalent to [`Cmd::status`][], but doesn't bother returning it
+    /// Equivalent to [`Cmd::status`][],
+    /// but doesn't bother returning the actual status code (because it's captured in the Result)
     pub fn run(&mut self) -> Result<()> {
         self.status()?;
         Ok(())
     }
-    /// Equivalent to [`std::process::Command::spawn`][], but also runs TODO: WRAPPERS
+    /// Equivalent to [`std::process::Command::spawn`][],
+    /// but logged and with the error wrapped.
     pub fn spawn(&mut self) -> Result<std::process::Child> {
         self.log_command();
         self.inner.spawn().map_err(|cause| AxoprocessError::Exec {
@@ -159,18 +177,44 @@ impl Cmd {
             cause,
         })
     }
-    /// Equivalent to [`std::process::Command::output`][], but also runs TODO: WRAPPERS
+    /// Equivalent to [`std::process::Command::output`][],
+    /// but logged, with the error wrapped, and status checked (by default)
     pub fn output(&mut self) -> Result<std::process::Output> {
+        #[cfg(not(feature = "stdout_to_stderr_modern"))]
+        if self.stdout_to_stderr_polyfill {
+            self.inner.stdout(Stdio::piped());
+        }
         self.log_command();
         let res = self.inner.output().map_err(|cause| AxoprocessError::Exec {
             summary: self.summary.clone(),
             cause,
         })?;
+        #[cfg(not(feature = "stdout_to_stderr_modern"))]
+        if self.stdout_to_stderr_polyfill {
+            use std::io::Write;
+            let mut stderr = std::io::stderr().lock();
+            let _ = stderr.write_all(&res.stdout);
+            let _ = stderr.flush();
+        }
         self.maybe_check_status(res.status)?;
         Ok(res)
     }
-    /// Equivalent to [`std::process::Command::status`][], but also runs TODO: WRAPPERS
+    /// Equivalent to [`std::process::Command::status`][]
+    /// but logged, with the error wrapped, and status checked (by default)
     pub fn status(&mut self) -> Result<ExitStatus> {
+        #[cfg(not(feature = "stdout_to_stderr_modern"))]
+        if self.stdout_to_stderr_polyfill {
+            // Emulate how status sets stderr to Inherit, simply refuse to acknowledge it being overriden
+            // (if they wanted to blackhole all output, why are they using stdout_to_stderr?)
+            self.inner.stderr(std::process::Stdio::inherit());
+            let out = self.output()?;
+            return Ok(out.status);
+        }
+        self.status_inner()
+    }
+
+    /// Actual impl of status, split out to support a polyfill
+    fn status_inner(&mut self) -> Result<ExitStatus> {
         self.log_command();
         let res = self.inner.status().map_err(|cause| AxoprocessError::Exec {
             summary: self.summary.clone(),
@@ -181,6 +225,7 @@ impl Cmd {
     }
 }
 
+/// Transparently forwarded [`std::process::Command`][] APIs
 impl Cmd {
     /// Forwards to [`std::process::Command::arg`][]
     pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Self {
@@ -322,10 +367,10 @@ impl Cmd {
         };
         match strategy {
             LogStrategy::Stdout => {
-                println!("exec {:?}", self.inner)
+                println!("exec {:?}", self.inner);
             }
             LogStrategy::Stderr => {
-                eprintln!("exec {:?}", self.inner)
+                eprintln!("exec {:?}", self.inner);
             }
             LogStrategy::Tracing(level) => {
                 log!(level, "exec {:?}", self.inner);
