@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/axoprocess.svg)](https://crates.io/crates/axoprocess)
 [![docs](https://docs.rs/axoprocess/badge.svg)](https://docs.rs/axoprocess)
-[![Rust CI](https://github.com/axodotdev/axoprocess/workflows/rust/badge.svg?branch=main)](https://github.com/axodotdev/axoprocess/actions/workflows/rust.yml)
+[![Rust CI](https://github.com/axodotdev/axoprocess/workflows/Rust/badge.svg?branch=main)](https://github.com/axodotdev/axoprocess/actions/workflows/rust.yml)
 
 Nicer defaults for invoking CLI Commands.
 
