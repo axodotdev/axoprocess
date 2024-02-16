@@ -22,5 +22,5 @@ stdout_to_stderr_modern = []
 
 [dependencies]
 miette = "5.10.0"
-thiserror = "1.0.50"
+thiserror = "1.0.57"
 tracing = "0.1.40"
