@@ -21,6 +21,6 @@ default = []
 stdout_to_stderr_modern = []
 
 [dependencies]
-miette = "7.2.0"
-thiserror = "1.0.58"
-tracing = "0.1.40"
+miette = ">= 7.2.0"
+thiserror = ">= 1.0.58"
+tracing = ">= 0.1.40"
