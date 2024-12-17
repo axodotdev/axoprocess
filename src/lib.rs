@@ -68,6 +68,8 @@
 //! Which is, a lot nicer!
 
 pub use error::*;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::{
     ffi::OsStr,
     path::Path,
@@ -168,6 +170,7 @@ impl Cmd {
         self.status()?;
         Ok(())
     }
+
     /// Equivalent to [`std::process::Command::spawn`][],
     /// but logged and with the error wrapped.
     pub fn spawn(&mut self) -> Result<std::process::Child> {
@@ -211,6 +214,19 @@ impl Cmd {
             return Ok(out.status);
         }
         self.status_inner()
+    }
+
+    #[cfg(unix)]
+    /// Equivalent to [`std::process::Command::exec`][]
+    /// but logged, with the error wrapped
+    /// Note that, like the original, this will never return on success
+    pub fn exec(&mut self) -> Result<ExitStatus> {
+        self.log_command();
+        let cause = self.inner.exec();
+        Err(AxoprocessError::Exec {
+            summary: self.summary.clone(),
+            cause,
+        })
     }
 
     /// Actual impl of status, split out to support a polyfill
